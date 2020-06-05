@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.batchprocessing.EmployeeMapper">
+
+    <select id="select" resultType="com.example.batchprocessing.Employee">
+        SELECT
+            working_day, employee_id, working_hours
+        FROM
+            employeeWorkingTimeFromCsv
+
+    </select>
+
+    <insert id="savecsv">
+        INSERT INTO 
+            employeeWorkingTimeFromCsv (working_day, employee_id, working_hours) 
+        VALUES 
+            (#{working_day}, #{employee_id}, #{working_hours})
+    </insert>
+
+    <insert id="savesalary">
+        INSERT INTO 
+            employeeSalary (working_day, employee_id, working_hours, salary) 
+        VALUES 
+            (#{working_day}, #{employee_id}, #{working_hours}, #{salary})
+    </insert>
+
+</mapper>

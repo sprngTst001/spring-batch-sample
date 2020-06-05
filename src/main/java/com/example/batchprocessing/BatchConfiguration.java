@@ -18,6 +18,15 @@ import org.mybatis.spring.batch.MyBatisCursorItemReader;
 import org.mybatis.spring.batch.builder.MyBatisBatchItemWriterBuilder;
 import org.mybatis.spring.batch.builder.MyBatisCursorItemReaderBuilder;
 
+import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
+import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
+import org.springframework.batch.item.file.mapping.DefaultLineMapper;
+import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
+
 
 @Configuration
 @EnableBatchProcessing
@@ -35,45 +44,91 @@ public class BatchConfiguration {
 	@Autowired
 	public DataSource dataSource;
 
-    @Bean
-    public MyBatisCursorItemReader<Person> reader() {
-        return new MyBatisCursorItemReaderBuilder<Person>()
-                .sqlSessionFactory(sqlSessionFactory)
-                .queryId("com.example.batchprocessing.PersonMapper.select")
-                .build();
-    }
-	
+
+	// Reader employee_csv_import
 	@Bean
-	public PersonItemProcessor processor() {
-		return new PersonItemProcessor();
+	public FlatFileItemReader<Employee> employeeCsvReader() {
+		return new FlatFileItemReaderBuilder<Employee>()
+			.name("EmployeeItemReader")
+			.resource(new ClassPathResource("employeeWorkingTime.csv"))
+			.delimited()
+			.names(new String[]{"working_day", "employee_id", "working_hours"})
+			.fieldSetMapper(new BeanWrapperFieldSetMapper<Employee>() {{
+				setTargetType(Employee.class);
+			}})
+			.build();
+	}
+	
+	// processor employee_csv_import
+	@Bean
+	public EmployeeItemValidator employeeCsvValidator() {
+		return new EmployeeItemValidator();
 	}
 
+	// writer employee_csv_import
 	@Bean
-	public MyBatisBatchItemWriter<Person> writer(DataSource dataSource) {
-		return new MyBatisBatchItemWriterBuilder<Person>()
+	public MyBatisBatchItemWriter<Employee> employeeCsvWriter(DataSource dataSource) {
+		return new MyBatisBatchItemWriterBuilder<Employee>()
 			.sqlSessionFactory(sqlSessionFactory)
-			.statementId("com.example.batchprocessing.PersonMapper.save")
+			.statementId("com.example.batchprocessing.EmployeeMapper.savecsv")
 			.build();
 	}
 
-	// job/step
+	// reader employee_db_export
+    @Bean
+    public MyBatisCursorItemReader<Employee> employeeDbReader() {
+        return new MyBatisCursorItemReaderBuilder<Employee>()
+                .sqlSessionFactory(sqlSessionFactory)
+                .queryId("com.example.batchprocessing.EmployeeMapper.select")
+                .build();
+    }
+
+	// processor employee_db_export
 	@Bean
-	public Job importUserJob(JobCompletionNotificationListener listener, Step step1) {
+	public EmployeeSalaryCalculation employeeSalaryCalculation() {
+		return new EmployeeSalaryCalculation();
+	}
+
+	// writer employee_db_export
+	@Bean
+	public MyBatisBatchItemWriter<Employee> employeeSalaryWriter(DataSource dataSource) {
+		return new MyBatisBatchItemWriterBuilder<Employee>()
+			.sqlSessionFactory(sqlSessionFactory)
+			.statementId("com.example.batchprocessing.EmployeeMapper.savesalary")
+			.build();
+	}
+
+	@Bean
+	public Job importUserJob(JobCompletionNotificationListener listener, Step step1, Step step2) {
 		return jobBuilderFactory.get("importUserJob")
 			.incrementer(new RunIdIncrementer())
 			.listener(listener)
-			.flow(step1)
-			.end()
+			.start(step1)
+			.next(step2)
 			.build();
 	}
 
+
+	// import from csv
 	@Bean
-	public Step step1(MyBatisBatchItemWriter<Person> writer) {
+	public Step step1(MyBatisBatchItemWriter<Employee> employeeCsvWriter) {
 		return stepBuilderFactory.get("step1")
-			.<Person, Person> chunk(10)
-			.reader(reader())
-			.processor(processor())
-			.writer(writer)
+			.<Employee, Employee> chunk(10)
+			.reader(employeeCsvReader())
+			.processor(employeeCsvValidator())
+			.writer(employeeCsvWriter)
+			.build();
+	}
+
+
+	// export to db
+	@Bean
+	public Step step2(MyBatisBatchItemWriter<Employee> employeeSalaryWriter) {
+		return stepBuilderFactory.get("step2")
+			.<Employee, Employee> chunk(10)
+			.reader(employeeDbReader())
+			.processor(employeeSalaryCalculation())
+			.writer(employeeSalaryWriter)
 			.build();
 	}
 }

@@ -23,12 +23,12 @@ public class JobCompletionNotificationListener extends JobExecutionListenerSuppo
 
 	@Override
 	public void afterJob(JobExecution jobExecution) {
-		if(jobExecution.getStatus() == BatchStatus.COMPLETED) {
-			log.info("!!! JOB FINISHED! Time to verify the results");
+		// if(jobExecution.getStatus() == BatchStatus.COMPLETED) {
+		// 	log.info("!!! JOB FINISHED! Time to verify the results");
 
-			jdbcTemplate.query("SELECT full_name FROM peopleOutput",
-				(rs, row) -> rs.getString(1)
-			).forEach(fullName -> log.info("Found <" + fullName + "> in the database."));
-		}
+		// 	jdbcTemplate.query("SELECT full_name FROM peopleOutput",
+		// 		(rs, row) -> rs.getString(1)
+		// 	).forEach(fullName -> log.info("Found <" + fullName + "> in the database."));
+		// }
 	}
 }
